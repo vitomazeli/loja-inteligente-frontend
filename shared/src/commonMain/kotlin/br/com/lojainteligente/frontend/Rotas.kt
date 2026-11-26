@@ -22,6 +22,9 @@ data object Clientes : Rota
 @Serializable
 data object Vendas : Rota
 
+@Serializable
+data object Usuarios : Rota
+
 
 @Serializable
 data object ListaCategorias : Rota

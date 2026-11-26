@@ -59,23 +59,16 @@ class ProdutoViewModel(
     fun carregarProdutos() {
         viewModelScope.launch {
             _uiState.update { it.copy(carregando = true) }
-
-            repositorio.listar().fold(
-                onSuccess = { lista ->
-                    _uiState.update {
-                        it.copy(produtos = lista, carregando = false)
-                    }
-                },
-                onFailure = { erro ->
-                    _uiState.update {
-                        it.copy(
-                            carregando = false,
-                            mensagem = erro.message ?: "Erro ao carregar produtos."
-                        )
-                    }
-                }
-            )
+            carregarProdutosInterno()
+            _uiState.update { it.copy(carregando = false) }
         }
+    }
+
+    private suspend fun carregarProdutosInterno() {
+        repositorio.listar().fold(
+            onSuccess = { lista -> _uiState.update { it.copy(produtos = lista, mensagem = "") } },
+            onFailure = { erro -> _uiState.update { it.copy(mensagem = erro.message ?: "Erro ao carregar produtos.") } }
+        )
     }
 
     fun selecionarProduto(produto: ProdutoResponseApi) {
@@ -95,6 +88,7 @@ class ProdutoViewModel(
 
     fun salvarProduto() {
         val estado = _uiState.value
+        val estavaEditando = estado.id != null
         val precoConvertido = estado.preco
             .trim()
             .replace(",", ".")
@@ -133,9 +127,9 @@ class ProdutoViewModel(
             resultado.fold(
                 onSuccess = {
                     limparFormulario()
-                    carregarProdutos()
+                    carregarProdutosInterno()
                     _uiState.update {
-                        it.copy(mensagem = "Produto salvo com sucesso.")
+                        it.copy(mensagem = if (estavaEditando) "Produto atualizado com sucesso." else "Produto cadastrado com sucesso.")
                     }
                 },
                 onFailure = { erro ->
@@ -156,7 +150,7 @@ class ProdutoViewModel(
 
             repositorio.excluir(id).fold(
                 onSuccess = {
-                    carregarProdutos()
+                    carregarProdutosInterno()
                     _uiState.update {
                         it.copy(mensagem = "Produto excluído com sucesso.")
                     }
@@ -185,5 +179,9 @@ class ProdutoViewModel(
                 ativo = true
             )
         }
+    }
+
+    fun limparMensagem() {
+        _uiState.update { it.copy(mensagem = "") }
     }
 }

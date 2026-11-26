@@ -67,7 +67,10 @@ class CategoriaViewModel(
             onSuccess = { lista ->
                 _uiState.update {
                     it.copy(
-                        categorias = lista,
+                        categorias = lista.sortedWith(
+                            compareBy<CategoriaResponseApi> { it.ordemExibicao }
+                                .thenBy { it.nome.lowercase() }
+                        ),
                         mensagem = ""
                     )
                 }
@@ -98,6 +101,7 @@ class CategoriaViewModel(
 
     fun salvarCategoria() {
         val estado = _uiState.value
+        val estavaEditando = estado.id != null
         val ordem = estado.ordemExibicao.toIntOrNull()
 
         if (estado.nome.isBlank() || ordem == null || ordem < 0) {
@@ -144,7 +148,7 @@ class CategoriaViewModel(
                     _uiState.update {
                         it.copy(
                             carregando = false,
-                            mensagem = "Categoria salva com sucesso."
+                            mensagem = if (estavaEditando) "Categoria atualizada com sucesso." else "Categoria cadastrada com sucesso."
                         )
                     }
                 },
@@ -203,4 +207,6 @@ class CategoriaViewModel(
             )
         }
     }
+
+    fun limparMensagem() = _uiState.update { it.copy(mensagem = "") }
 }

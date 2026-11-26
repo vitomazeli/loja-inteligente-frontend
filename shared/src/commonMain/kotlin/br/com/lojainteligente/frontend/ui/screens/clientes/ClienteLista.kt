@@ -3,180 +3,83 @@ package br.com.lojainteligente.frontend.ui.screens.clientes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
-import br.com.lojainteligente.frontend.data.repository.ApiService
 import br.com.lojainteligente.frontend.model.ClienteResponseApi
-import androidx.compose.ui.graphics.Color
+import br.com.lojainteligente.frontend.ui.components.KoraEmptyState
+import br.com.lojainteligente.frontend.ui.components.KoraSectionHeader
+import br.com.lojainteligente.frontend.ui.components.KoraStatusBadge
+import br.com.lojainteligente.frontend.viewmodel.ClienteViewModel
 
 @Composable
 fun ClienteLista(
-    apiService: ApiService,
-    atualizarVersao: Int = 0
+    viewModel: ClienteViewModel,
+    atualizarVersao: Int = 0,
+    aoEditar: (ClienteResponseApi) -> Unit,
+    aoNovoCliente: () -> Unit
 ) {
-    var clientes by remember {
-        mutableStateOf<List<ClienteResponseApi>>(emptyList())
-    }
+    val estado by viewModel.uiState.collectAsState()
+    LaunchedEffect(viewModel, atualizarVersao) { viewModel.carregar() }
 
-    var carregando by remember {
-        mutableStateOf(false)
-    }
-
-    var mensagem by remember {
-        mutableStateOf("")
-    }
-
-    var versaoLocal by remember {
-        mutableStateOf(0)
-    }
-
-    val scope = rememberCoroutineScope()
-
-    fun carregarClientes() {
-        scope.launch {
-            carregando = true
-            mensagem = ""
-
-            apiService.listarClientes()
-                .onSuccess {
-                    clientes = it
-                }
-                .onFailure {
-                    mensagem = "Erro ao carregar clientes: ${it.message}"
-                }
-
-            carregando = false
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        KoraSectionHeader(
+            title = "Clientes cadastrados",
+            count = estado.clientes.size,
+            addLabel = "＋ Novo cliente",
+            onAdd = aoNovoCliente,
+            onRefresh = { viewModel.carregar() },
+            refreshing = estado.carregando
+        )
+        if (estado.carregando && estado.clientes.isEmpty()) CircularProgressIndicator()
+        if (estado.mensagem.isNotBlank()) {
+            Text(estado.mensagem, color = if (estado.mensagem.contains("sucesso", true) || estado.mensagem.contains("exclu", true)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
         }
-    }
-
-    LaunchedEffect(apiService, atualizarVersao, versaoLocal) {
-        carregarClientes()
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "Clientes cadastrados",
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            Button(
-                onClick = { versaoLocal++ },
-                enabled = !carregando
-            ) {
-                Text("Atualizar")
-            }
+        if (!estado.carregando && estado.clientes.isEmpty() && estado.mensagem.isBlank()) {
+            KoraEmptyState("Ainda não há clientes", "Cadastre clientes para agilizar o registro das vendas.")
         }
-
-        if (carregando) {
-            CircularProgressIndicator()
-        }
-
-        if (!carregando && clientes.isEmpty() && mensagem.isBlank()) {
-            Text("Nenhum cliente cadastrado.")
-        }
-
-        if (mensagem.isNotBlank()) {
-            Text(
-                text = mensagem,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
-
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(
-                items = clientes,
-                key = { it.id }
-            ) { cliente ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = 2.dp
-                    ),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color.White
-                    )
-                ) {
-
-                }
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+        if (estado.clientes.isNotEmpty()) {
+            LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(estado.clientes, key = { it.id }) { cliente ->
+                    Card(
+                        Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
-                        Text(
-                            text = cliente.nome,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-
-                        Text("E-mail: ${cliente.email}")
-
-                        Text(
-                            "Telefone: ${cliente.telefone ?: "Não informado"}"
-                        )
-
-                        Text(
-                            "Status: ${if (cliente.ativo) "Ativo" else "Inativo"}"
-                        )
-
-                        Text(
-                            text = "Cadastrado em: ${
-                                formatarDataCadastro(cliente.dataCadastro)
-                            }",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(cliente.nome, style = MaterialTheme.typography.titleMedium)
+                                    Text("ID: ${cliente.id}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                KoraStatusBadge(cliente.ativo)
+                            }
+                            Text(cliente.email, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Telefone: ${cliente.telefone?.takeIf(String::isNotBlank) ?: "Não informado"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                TextButton(onClick = { aoEditar(cliente) }) { Text("✎  Editar") }
+                                TextButton(enabled = !estado.carregando, onClick = { viewModel.excluir(cliente.id) }) { Text("Excluir") }
+                            }
+                        }
                     }
                 }
             }
         }
-    }
-
-
-private fun formatarDataCadastro(data: String): String {
-    if (data.isBlank()) {
-        return "Data não disponível"
-    }
-
-    return try {
-        val dataHora = data.substringBefore(".")
-        val partes = dataHora.split("T")
-
-        if (partes.size != 2) {
-            data
-        } else {
-            val dataPartes = partes[0].split("-")
-            val hora = partes[1]
-
-            if (dataPartes.size != 3) {
-                data
-            } else {
-                "${dataPartes[2]}/${dataPartes[1]}/${dataPartes[0]} " +
-                        hora.take(5)
-            }
-        }
-    } catch (e: Exception) {
-        data
     }
 }

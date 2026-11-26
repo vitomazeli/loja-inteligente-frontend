@@ -1,14 +1,30 @@
-
 package br.com.lojainteligente.frontend.ui.screens.categorias
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import br.com.lojainteligente.frontend.data.repository.CategoriaResponseApi
+import br.com.lojainteligente.frontend.ui.components.KoraEmptyState
+import br.com.lojainteligente.frontend.ui.components.KoraSectionHeader
+import br.com.lojainteligente.frontend.ui.components.KoraStatusBadge
 import br.com.lojainteligente.frontend.viewmodel.CategoriaViewModel
 
 @Composable
@@ -21,150 +37,76 @@ fun CategoriaLista(
 ) {
     val estado by viewModel.uiState.collectAsState()
 
-    // Carrega as categorias ao abrir a tela
-    LaunchedEffect(viewModel, atualizarVersao) {
-        viewModel.carregarCategorias()
-    }
+    LaunchedEffect(viewModel, atualizarVersao) { viewModel.carregarCategorias() }
 
     Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        KoraSectionHeader(
+            title = "Categorias cadastradas",
+            count = estado.categorias.size,
+            addLabel = "＋ Nova categoria",
+            onAdd = aoNovaCategoria,
+            onRefresh = viewModel::carregarCategorias,
+            refreshing = estado.carregando
+        )
 
-        // Cabeçalho da listagem
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Button(
-                onClick = aoNovaCategoria
-            ) {
-                Text("Nova categoria")
-            }
-
-            Text(
-                text = "Categorias cadastradas",
-                style = MaterialTheme.typography.titleLarge
-            )
-
-            Button(
-                onClick = {
-                    viewModel.carregarCategorias()
-                },
-                enabled = !estado.carregando
-            ) {
-                Text("Atualizar")
-            }
-        }
-
-        // Indicador de carregamento
-        if (estado.carregando) {
+        if (estado.carregando && estado.categorias.isEmpty()) {
             CircularProgressIndicator()
         }
-
-        // Mensagem de erro ou sucesso
         if (estado.mensagem.isNotBlank()) {
             Text(
-                text = estado.mensagem,
-                color = if (estado.mensagem.contains("sucesso", ignoreCase = true)) {
+                estado.mensagem,
+                color = if (estado.mensagem.contains("sucesso", true) || estado.mensagem.contains("exclu", true)) {
                     MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.error
-                }
+                } else MaterialTheme.colorScheme.error
             )
         }
 
-        // Estado vazio
-        if (estado.categorias.isEmpty() && !estado.carregando) {
-            Text("Nenhuma categoria cadastrada.")
-        }
-
-        // Listagem de categorias
-        if (estado.categorias.isNotEmpty()) {
-
-            Text(
-                text = "Total de categorias: ${estado.categorias.size}",
-                style = MaterialTheme.typography.bodyMedium
-            )
-
+        if (estado.categorias.isEmpty() && !estado.carregando && estado.mensagem.isBlank()) {
+            KoraEmptyState("Ainda não há categorias", "Crie uma categoria para organizar os produtos da loja.")
+        } else if (estado.categorias.isNotEmpty()) {
             LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(
-                    items = estado.categorias,
-                    key = { categoria ->
-                        categoria.id
-                            ?: "${categoria.nome}-${categoria.ordemExibicao}"
-                    }
-                ) { categoria ->
-
+                items(estado.categorias, key = { it.id ?: "${it.nome}-${it.ordemExibicao}" }) { categoria ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
-                        )
+                        shape = RoundedCornerShape(20.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            modifier = Modifier.fillMaxWidth().padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(categoria.nome, style = MaterialTheme.typography.titleMedium)
+                                    Text(categoria.descricao?.takeIf(String::isNotBlank) ?: "Sem descrição", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                KoraStatusBadge(categoria.ativo, "Ativa", "Inativa")
+                            }
                             Text(
-                                text = categoria.nome,
-                                style = MaterialTheme.typography.titleMedium
-                            )
-
-                            Text(
-                                text = categoria.descricao ?: "Sem descrição"
-                            )
-
-                            Text("ID: ${categoria.id ?: "—"}")
-
-                            Text(
-                                "Status: ${
-                                    if (categoria.ativo) "Ativa" else "Inativa"
-                                }"
-                            )
-
-                            Text(
-                                "Ordem de exibição: ${categoria.ordemExibicao}"
-                            )
-
-                            Text(
-                                text = "Cadastrada em: ${
-                                    formatarDataCadastro(categoria.dataCadastro)
-                                }",
+                                "ID: ${categoria.id ?: "—"}    ·    Ordem de exibição: ${categoria.ordemExibicao}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
-                            ) {
-
-                                TextButton(
-                                    onClick = {
-                                        viewModel.selecionarCategoria(categoria)
-                                        aoEditar(categoria)
-                                    }
-                                ) {
-                                    Text("Editar")
+                            Text(
+                                "Cadastrada em ${formatarDataCadastro(categoria.dataCadastro)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                TextButton(onClick = { viewModel.selecionarCategoria(categoria); aoEditar(categoria) }) {
+                                    Text("✎  Editar")
                                 }
-
                                 TextButton(
-                                    onClick = {
-                                        categoria.id?.let { id ->
-                                            viewModel.excluirCategoria(id)
-                                        }
-                                    },
+                                    onClick = { categoria.id?.let(viewModel::excluirCategoria) },
                                     enabled = !estado.carregando
-                                ) {
-                                    Text("Excluir")
-                                }
+                                ) { Text("Excluir") }
                             }
                         }
                     }
@@ -175,28 +117,12 @@ fun CategoriaLista(
 }
 
 private fun formatarDataCadastro(data: String): String {
-    if (data.isBlank()) {
-        return "Data não disponível"
-    }
-
+    if (data.isBlank()) return "Data não disponível"
     return try {
-        val dataHora = data.substringBefore(".")
-        val partes = dataHora.split("T")
-
-        if (partes.size != 2) {
-            data
-        } else {
+        val partes = data.substringBefore(".").split("T")
+        if (partes.size != 2) data else {
             val dataPartes = partes[0].split("-")
-
-            if (dataPartes.size != 3) {
-                data
-            } else {
-                val hora = partes[1].take(5)
-
-                "${dataPartes[2]}/${dataPartes[1]}/${dataPartes[0]} $hora"
-            }
+            if (dataPartes.size != 3) data else "${dataPartes[2]}/${dataPartes[1]}/${dataPartes[0]} ${partes[1].take(5)}"
         }
-    } catch (e: Exception) {
-        data
-    }
+    } catch (_: Exception) { data }
 }

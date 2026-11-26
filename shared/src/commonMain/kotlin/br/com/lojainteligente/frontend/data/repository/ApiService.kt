@@ -43,7 +43,8 @@ data class LoginResponseApi(
 data class CadastroUsuarioRequestApi(
     val nome: String,
     val email: String,
-    val senha: String
+    val senha: String,
+    val confsenha: String
 )
 
 @Serializable
@@ -53,6 +54,23 @@ data class CadastroUsuarioResponseApi(
     val email: String,
     val perfil: String,
     val ativo: Boolean
+)
+
+@Serializable
+data class AtualizarUsuarioRequestApi(
+    val nome: String,
+    val email: String,
+    val perfil: String,
+    val ativo: Boolean
+)
+
+@Serializable
+data class LeituraPrateleiraApi(
+    val online: Boolean? = null,
+    val distancia: Double? = null,
+    val ocupacao: Double? = null,
+    val recebidaEm: String? = null,
+    val dataHora: String? = null
 )
 
 @Serializable
@@ -138,6 +156,26 @@ class ApiService(engine: HttpClientEngine) {
     suspend fun listarUsuarios():
             Result<List<CadastroUsuarioResponseApi>> =
         executarGet("/api/usuarios")
+
+    suspend fun obterLeituraPrateleira(): Result<LeituraPrateleiraApi> =
+        executarGet("/api/iot/prateleira")
+
+    suspend fun atualizarVendedor(
+        id: Long,
+        nome: String,
+        email: String,
+        perfil: String,
+        ativo: Boolean
+    ): Result<CadastroUsuarioResponseApi> = executarPut(
+        "/api/usuarios/$id",
+        AtualizarUsuarioRequestApi(nome, email, perfil, ativo)
+    )
+
+    suspend fun atualizarStatusVendedor(vendedor: CadastroUsuarioResponseApi, ativo: Boolean): Result<CadastroUsuarioResponseApi> =
+        executarPut(
+            "/api/usuarios/${vendedor.id ?: error("Vendedor sem ID.")}",
+            AtualizarUsuarioRequestApi(vendedor.nome, vendedor.email, vendedor.perfil, ativo)
+        )
 
     // CATEGORIAS
 
@@ -246,6 +284,11 @@ class ApiService(engine: HttpClientEngine) {
             Result<List<ClienteResponseApi>> =
         executarGet("/api/clientes")
 
+    suspend fun atualizarCliente(id: Long, cliente: ClienteRequestApi): Result<ClienteResponseApi> =
+        executarPut("/api/clientes/$id", cliente)
+
+    suspend fun excluirCliente(id: Long): Result<Unit> = executarDelete("/api/clientes/$id")
+
     // VENDAS
 
     suspend fun cadastrarVenda(
@@ -256,6 +299,11 @@ class ApiService(engine: HttpClientEngine) {
     suspend fun listarVendas():
             Result<List<VendaResponseApi>> =
         executarGet("/api/vendas")
+
+    suspend fun atualizarVenda(id: Long, venda: VendaRequestApi): Result<VendaResponseApi> =
+        executarPut("/api/vendas/$id", venda)
+
+    suspend fun excluirVenda(id: Long): Result<Unit> = executarDelete("/api/vendas/$id")
 
     // MÉTODOS HTTP REUTILIZÁVEIS
 
@@ -311,6 +359,31 @@ class ApiService(engine: HttpClientEngine) {
         }
 
         resposta.body<T>()
+    }
+
+    private suspend inline fun <reified R, reified T> executarPut(
+        caminho: String,
+        corpo: R
+    ): Result<T> = runCatching {
+        val jwt = token ?: error("Faça login antes de continuar.")
+        val resposta = client.put("$BASE_URL$caminho") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            bearerAuth(jwt)
+            setBody(corpo)
+        }
+        if (resposta.status.value !in 200..299) {
+            error(resposta.bodyAsText().ifBlank { "Erro HTTP ${resposta.status.value} ao atualizar $caminho." })
+        }
+        resposta.body<T>()
+    }
+
+    private suspend fun executarDelete(caminho: String): Result<Unit> = runCatching {
+        val jwt = token ?: error("Faça login antes de continuar.")
+        val resposta = client.delete("$BASE_URL$caminho") { bearerAuth(jwt) }
+        if (resposta.status.value !in 200..299) {
+            error(resposta.bodyAsText().ifBlank { "Erro ao remover registro." })
+        }
     }
 
     // SESSÃO E ENCERRAMENTO

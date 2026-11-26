@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
@@ -14,68 +16,83 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import br.com.lojainteligente.frontend.data.repository.ApiService
 import br.com.lojainteligente.frontend.model.ClienteRequestApi
-import kotlinx.coroutines.launch
+import br.com.lojainteligente.frontend.model.ClienteResponseApi
+import br.com.lojainteligente.frontend.ui.components.KoraFormPanel
+import br.com.lojainteligente.frontend.viewmodel.ClienteViewModel
 
 @Composable
 fun ClienteForm(
-    apiService: ApiService,
-    onClienteCadastrado: () -> Unit
+    viewModel: ClienteViewModel,
+    onClienteCadastrado: (String) -> Unit,
+    cliente: ClienteResponseApi? = null
 ) {
-    var nome by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var telefone by remember { mutableStateOf("") }
-    var ativo by remember { mutableStateOf(true) }
+    var nome by remember(cliente) { mutableStateOf(cliente?.nome.orEmpty()) }
+    var email by remember(cliente) { mutableStateOf(cliente?.email.orEmpty()) }
+    var telefone by remember(cliente) { mutableStateOf(cliente?.telefone.orEmpty()) }
+    var ativo by remember(cliente) { mutableStateOf(cliente?.ativo ?: true) }
 
+    val estado by viewModel.uiState.collectAsState()
     var mensagem by remember { mutableStateOf("") }
     var erro by remember { mutableStateOf(false) }
-    var carregando by remember { mutableStateOf(false) }
 
-    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(cliente) {
+        if (cliente == null) viewModel.limpar() else viewModel.selecionar(cliente)
+    }
+    LaunchedEffect(estado.mensagem) {
+        if (estado.mensagem.contains("sucesso", ignoreCase = true)) {
+            val feedback = estado.mensagem
+            viewModel.limparMensagem()
+            onClienteCadastrado(feedback)
+        }
+    }
 
     fun limparCampos() {
         nome = ""
         email = ""
         telefone = ""
         ativo = true
+        viewModel.atualizarNome("")
+        viewModel.atualizarEmail("")
+        viewModel.atualizarTelefone("")
+        viewModel.atualizarAtivo(true)
         mensagem = ""
         erro = false
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    KoraFormPanel(
+        title = if (cliente == null) "Cadastrar cliente" else "Editar cliente",
+        subtitle = "Mantenha os dados de contato organizados para suas vendas.",
+        modifier = Modifier.verticalScroll(rememberScrollState())
     ) {
-        Text("Cadastrar cliente")
+      Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
 
         OutlinedTextField(
             value = nome,
-            onValueChange = { nome = it },
+            onValueChange = { nome = it; viewModel.atualizarNome(it) },
             label = { Text("Nome completo") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !carregando
+            enabled = !estado.carregando
         )
 
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = { email = it; viewModel.atualizarEmail(it) },
             label = { Text("E-mail") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !carregando
+            enabled = !estado.carregando
         )
 
         OutlinedTextField(
             value = telefone,
-            onValueChange = { telefone = it },
+            onValueChange = { telefone = it; viewModel.atualizarTelefone(it) },
             label = { Text("Telefone") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !carregando
+            enabled = !estado.carregando
         )
 
         Row(
@@ -84,8 +101,8 @@ fun ClienteForm(
         ) {
             Checkbox(
                 checked = ativo,
-                onCheckedChange = { ativo = it },
-                enabled = !carregando
+                onCheckedChange = { ativo = it; viewModel.atualizarAtivo(it) },
+                enabled = !estado.carregando
             )
 
             Text(
@@ -121,65 +138,40 @@ fun ClienteForm(
                         }
 
                         else -> {
-                            carregando = true
-                            mensagem = ""
                             erro = false
-
-                            scope.launch {
-                                try {
-                                    apiService.cadastrarCliente(
-                                        ClienteRequestApi(
-                                            nome = nome.trim(),
-                                            email = emailNormalizado,
-                                            telefone = telefone.trim()
-                                                .ifBlank { null },
-                                            ativo = ativo
-                                        )
-                                    ).onSuccess {
-                                        limparCampos()
-                                        mensagem =
-                                            "Cliente cadastrado com sucesso!"
-                                        onClienteCadastrado()
-                                    }.onFailure {
-                                        mensagem =
-                                            "Erro ao cadastrar cliente: ${it.message}"
-                                        erro = true
-                                    }
-                                } catch (e: Exception) {
-                                    mensagem =
-                                        "Erro ao cadastrar cliente: ${e.message}"
-                                    erro = true
-                                } finally {
-                                    carregando = false
-                                }
-                            }
+                            mensagem = ""
+                            viewModel.salvar(ClienteRequestApi(nome.trim(), emailNormalizado, telefone.trim().ifBlank { null }, ativo))
                         }
                     }
                 },
-                enabled = !carregando,
-                modifier = Modifier.weight(1f)
+                enabled = !estado.carregando,
+                modifier = Modifier.weight(if (cliente == null) 1f else 2f)
             ) {
-                Text(if (carregando) "Gravando..." else "Gravar")
+                Text(if (estado.carregando) "Gravando..." else if (cliente == null) "Gravar" else "Salvar alterações")
             }
 
-            OutlinedButton(
-                onClick = { limparCampos() },
-                enabled = !carregando,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Limpar Campos")
+            if (cliente == null) {
+                OutlinedButton(
+                    onClick = { limparCampos() },
+                    enabled = !estado.carregando,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Limpar Campos")
+                }
             }
         }
 
-        if (mensagem.isNotBlank()) {
+        val mensagemExibida = mensagem.ifBlank { estado.mensagem }
+        if (mensagemExibida.isNotBlank()) {
             Text(
-                text = mensagem,
-                color = if (erro) {
+                text = mensagemExibida,
+                color = if (erro || (estado.mensagem.isNotBlank() && !estado.mensagem.contains("sucesso", true))) {
                     MaterialTheme.colorScheme.error
                 } else {
                     MaterialTheme.colorScheme.primary
                 }
             )
         }
+      }
     }
 }

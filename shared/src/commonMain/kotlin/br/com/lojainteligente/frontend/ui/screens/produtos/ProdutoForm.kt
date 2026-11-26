@@ -1,19 +1,22 @@
 package br.com.lojainteligente.frontend.ui.screens.produtos
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import br.com.lojainteligente.frontend.data.repository.ApiService
 import br.com.lojainteligente.frontend.data.repository.CategoriaResponseApi
+import br.com.lojainteligente.frontend.ui.components.KoraFormPanel
 import br.com.lojainteligente.frontend.viewmodel.ProdutoViewModel
 
 @Composable
 fun ProdutoForm(
     apiService: ApiService,
     viewModel: ProdutoViewModel,
-    onProdutoCadastrado: () -> Unit
+    onProdutoCadastrado: (String) -> Unit
 ) {
     val estado by viewModel.uiState.collectAsState()
 
@@ -38,17 +41,20 @@ fun ProdutoForm(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    LaunchedEffect(estado.carregando, estado.mensagem) {
+        if (!estado.carregando && estado.mensagem.contains("sucesso", ignoreCase = true)) {
+            val feedback = estado.mensagem
+            viewModel.limparMensagem()
+            onProdutoCadastrado(feedback)
+        }
+    }
+
+    KoraFormPanel(
+        title = if (estado.id == null) "Cadastrar produto" else "Editar produto",
+        subtitle = "Preencha os dados e associe o produto a uma categoria.",
+        modifier = Modifier.verticalScroll(rememberScrollState())
     ) {
-        Text(
-            if (estado.id == null) "Cadastrar produto"
-            else "Editar produto",
-            style = MaterialTheme.typography.titleLarge
-        )
+      Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
 
         OutlinedTextField(
             value = estado.nome,
@@ -135,23 +141,24 @@ fun ProdutoForm(
             Button(
                 onClick = {
                     viewModel.salvarProduto()
-                    onProdutoCadastrado()
                 },
                 enabled = !estado.carregando,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(if (estado.id == null) 1f else 2f)
             ) {
                 Text(if (estado.id == null) "Gravar" else "Atualizar")
             }
 
-            OutlinedButton(
-                onClick = {
-                    viewModel.limparFormulario()
-                    categoriaSelecionada = null
-                },
-                enabled = !estado.carregando,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Limpar")
+            if (estado.id == null) {
+                OutlinedButton(
+                    onClick = {
+                        viewModel.limparFormulario()
+                        categoriaSelecionada = null
+                    },
+                    enabled = !estado.carregando,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Limpar Campos")
+                }
             }
         }
 
@@ -161,5 +168,6 @@ fun ProdutoForm(
                 color = MaterialTheme.colorScheme.primary
             )
         }
+      }
     }
 }

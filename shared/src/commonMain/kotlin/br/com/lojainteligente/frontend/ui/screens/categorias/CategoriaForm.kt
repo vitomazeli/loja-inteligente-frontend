@@ -12,32 +12,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import br.com.lojainteligente.frontend.ui.components.KoraFormPanel
 import br.com.lojainteligente.frontend.viewmodel.CategoriaViewModel
 
 @Composable
 fun CategoriaForm(
     viewModel: CategoriaViewModel,
-    onCategoriaCadastrada: () -> Unit,
+    onCategoriaCadastrada: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val estado by viewModel.uiState.collectAsState()
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = if (estado.id == null) {
+    KoraFormPanel(
+        title = if (estado.id == null) {
                 "Cadastro de Categoria"
             } else {
                 "Editar Categoria"
             },
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
+        subtitle = "Organize os produtos e defina a ordem de exibição no catálogo.",
+        modifier = modifier.verticalScroll(rememberScrollState())
+    ) {
+      Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
 
         OutlinedTextField(
             value = estado.nome,
@@ -62,7 +57,7 @@ fun CategoriaForm(
         OutlinedTextField(
             value = estado.ordemExibicao,
             onValueChange = { valor ->
-                if (valor.isEmpty() || valor.all { it.isDigit() }) {
+                if (valor.length <= 9 && valor.all { it in '0'..'9' }) {
                     viewModel.atualizarOrdemExibicao(valor)
                 }
             },
@@ -100,7 +95,7 @@ fun CategoriaForm(
                     viewModel.salvarCategoria()
                 },
                 enabled = !estado.carregando,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(if (estado.id == null) 1f else 2f)
             ) {
                 Text(
                     if (estado.carregando) "Salvando..."
@@ -109,30 +104,37 @@ fun CategoriaForm(
                 )
             }
 
-            OutlinedButton(
-                onClick = {
-                    viewModel.limparFormulario()
-                },
-                enabled = !estado.carregando,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Limpar Campos")
+            if (estado.id == null) {
+                OutlinedButton(
+                    onClick = { viewModel.limparFormulario() },
+                    enabled = !estado.carregando,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Limpar Campos")
+                }
             }
         }
 
         if (estado.mensagem.isNotBlank()) {
             Text(
                 text = estado.mensagem,
-                color = MaterialTheme.colorScheme.primary
+            color = if (estado.mensagem.contains("sucesso", ignoreCase = true)) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.error
+            }
             )
         }
+      }
     }
 
     LaunchedEffect(estado.carregando, estado.mensagem) {
         if (!estado.carregando &&
-            estado.mensagem == "Categoria salva com sucesso."
+            estado.mensagem.contains("sucesso", ignoreCase = true)
         ) {
-            onCategoriaCadastrada()
+            val feedback = estado.mensagem
+            viewModel.limparMensagem()
+            onCategoriaCadastrada(feedback)
         }
     }
 }
