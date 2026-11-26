@@ -1,5 +1,4 @@
-
-package br.com.lojainteligente.frontend.ui
+package br.com.lojainteligente.frontend.ui.screens.cadastro
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,8 +22,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import br.com.lojainteligente.frontend.data.ApiService
-import br.com.lojainteligente.frontend.data.CadastroUsuarioRequestApi
+import br.com.lojainteligente.frontend.data.repository.ApiService
+import br.com.lojainteligente.frontend.data.repository.CadastroUsuarioRequestApi
 import kotlinx.coroutines.launch
 
 @Composable

@@ -1,5 +1,4 @@
-
-package br.com.lojainteligente.frontend.data
+package br.com.lojainteligente.frontend.data.repository
 
 import br.com.lojainteligente.frontend.model.ClienteRequestApi
 import br.com.lojainteligente.frontend.model.ClienteResponseApi
@@ -15,6 +14,8 @@ import io.ktor.client.request.accept
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
+import io.ktor.client.request.put
+import io.ktor.client.request.delete
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -94,6 +95,7 @@ class ApiService(engine: HttpClientEngine) {
         email: String,
         senha: String
     ): Result<Unit> = runCatching {
+
         val resposta = client.post("$BASE_URL/auth/login") {
             contentType(ContentType.Application.Json)
             accept(ContentType.Application.Json)
@@ -106,6 +108,9 @@ class ApiService(engine: HttpClientEngine) {
 
         val dados = resposta.body<LoginResponseApi>()
         token = dados.token
+
+        println("LOGIN: Token armazenado: ${!token.isNullOrBlank()}")
+        println("LOGIN: Instância ${this.hashCode()}")
     }
 
 
@@ -145,6 +150,44 @@ class ApiService(engine: HttpClientEngine) {
             Result<List<CategoriaResponseApi>> =
         executarGet("/api/categorias")
 
+
+    suspend fun atualizarCategoria(
+        id: Long,
+        categoria: CategoriaRequestApi
+    ): Result<CategoriaResponseApi> = runCatching {
+
+        val jwt = token ?: error("Faça login antes de continuar.")
+
+        val resposta = client.put("$BASE_URL/api/categorias/$id") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            bearerAuth(jwt)
+            setBody(categoria)
+        }
+
+        if (resposta.status.value !in 200..299) {
+            val detalhe = resposta.bodyAsText()
+            error(detalhe.ifBlank { "Erro ao atualizar categoria." })
+        }
+
+        resposta.body<CategoriaResponseApi>()
+    }
+
+    suspend fun excluirCategoria(id: Long): Result<Unit> = runCatching {
+
+        val jwt = token ?: error("Faça login antes de continuar.")
+
+        val resposta = client.delete("$BASE_URL/api/categorias/$id") {
+            bearerAuth(jwt)
+        }
+
+        if (resposta.status.value !in 200..299) {
+            val detalhe = resposta.bodyAsText()
+            error(detalhe.ifBlank { "Erro ao excluir categoria." })
+        }
+    }
+
+
     // PRODUTOS
 
     suspend fun cadastrarProduto(
@@ -155,6 +198,42 @@ class ApiService(engine: HttpClientEngine) {
     suspend fun listarProdutos():
             Result<List<ProdutoResponseApi>> =
         executarGet("/api/produtos")
+
+    suspend fun atualizarProduto(
+        id: Long,
+        produto: ProdutoRequestApi
+    ): Result<ProdutoResponseApi> = runCatching {
+
+        val jwt = token ?: error("Faça login antes de continuar.")
+
+        val resposta = client.put("$BASE_URL/api/produtos/$id") {
+            contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
+            bearerAuth(jwt)
+            setBody(produto)
+        }
+
+        if (resposta.status.value !in 200..299) {
+            val detalhe = resposta.bodyAsText()
+            error(detalhe.ifBlank { "Erro ao atualizar produto." })
+        }
+
+        resposta.body<ProdutoResponseApi>()
+    }
+
+    suspend fun excluirProduto(id: Long): Result<Unit> = runCatching {
+
+        val jwt = token ?: error("Faça login antes de continuar.")
+
+        val resposta = client.delete("$BASE_URL/api/produtos/$id") {
+            bearerAuth(jwt)
+        }
+
+        if (resposta.status.value !in 200..299) {
+            val detalhe = resposta.bodyAsText()
+            error(detalhe.ifBlank { "Erro ao excluir produto." })
+        }
+    }
 
     // CLIENTES
 
@@ -183,8 +262,12 @@ class ApiService(engine: HttpClientEngine) {
     private suspend inline fun <reified T> executarGet(
         caminho: String
     ): Result<T> = runCatching {
+
         val jwt = token
             ?: error("Faça login antes de continuar.")
+
+        println("GET: $caminho | Token encontrado: ${jwt.isNotBlank()}")
+        println("GET: Instância ${this.hashCode()}")
 
         val resposta = client.get("$BASE_URL$caminho") {
             accept(ContentType.Application.Json)
@@ -193,6 +276,7 @@ class ApiService(engine: HttpClientEngine) {
 
         if (resposta.status.value !in 200..299) {
             val detalhe = resposta.bodyAsText()
+
             error(
                 detalhe.ifBlank {
                     "Erro HTTP ${resposta.status.value} ao consultar $caminho."
@@ -230,6 +314,10 @@ class ApiService(engine: HttpClientEngine) {
     }
 
     // SESSÃO E ENCERRAMENTO
+
+    fun possuiToken(): Boolean {
+        return !token.isNullOrBlank()
+    }
 
     fun logout() {
         token = null

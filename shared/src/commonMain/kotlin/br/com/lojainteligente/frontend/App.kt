@@ -1,31 +1,53 @@
 
 package br.com.lojainteligente.frontend
 
+
+import br.com.lojainteligente.frontend.data.repository.ApiService
+import br.com.lojainteligente.frontend.data.createHttpClientEngine
+import br.com.lojainteligente.frontend.ui.screens.categorias.CategoriaForm
+import br.com.lojainteligente.frontend.ui.screens.categorias.CategoriaLista
+import br.com.lojainteligente.frontend.ui.screens.clientes.ClienteForm
+import br.com.lojainteligente.frontend.ui.screens.clientes.ClienteLista
+import br.com.lojainteligente.frontend.ui.screens.login.LoginForm
+import br.com.lojainteligente.frontend.ui.screens.produtos.ProdutoForm
+import br.com.lojainteligente.frontend.ui.screens.produtos.ProdutoLista
+import br.com.lojainteligente.frontend.ui.screens.vendas.VendaForm
+import br.com.lojainteligente.frontend.ui.screens.vendas.VendaLista
+import br.com.lojainteligente.frontend.data.repository.ProdutoRepositorioRemoto
+import br.com.lojainteligente.frontend.viewmodel.ProdutoViewModel
+import br.com.lojainteligente.frontend.data.repository.CategoriaRepositorioRemoto
+import br.com.lojainteligente.frontend.viewmodel.CategoriaViewModel
+
+
+import androidx.compose.runtime.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import br.com.lojainteligente.frontend.data.ApiService
-import br.com.lojainteligente.frontend.data.CategoriaRequestApi
-import br.com.lojainteligente.frontend.data.createHttpClientEngine
-import br.com.lojainteligente.frontend.ui.CadastroForm
-import br.com.lojainteligente.frontend.ui.CategoriaForm
-import br.com.lojainteligente.frontend.ui.CategoriaLista
-import br.com.lojainteligente.frontend.ui.ClienteForm
-import br.com.lojainteligente.frontend.ui.ClienteLista
-import br.com.lojainteligente.frontend.ui.LoginForm
-import br.com.lojainteligente.frontend.ui.ProdutoForm
-import br.com.lojainteligente.frontend.ui.ProdutoLista
-import br.com.lojainteligente.frontend.ui.VendaForm
-import br.com.lojainteligente.frontend.ui.VendaLista
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.ui.NavDisplay
+import androidx.navigation3.runtime.entryProvider
+import androidx.savedstate.serialization.SavedStateConfiguration
+
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclass
+
+import io.ktor.client.engine.cio.CIO
+
 
 private val AzulEscuro = Color(0xFF172554)
 private val Azul = Color(0xFF2563EB)
@@ -81,6 +103,42 @@ fun App() {
     var versaoCategorias by remember { mutableStateOf(0) }
     var versaoDashboard by remember { mutableStateOf(0) }
 
+    val backStack = rememberNavBackStack(
+
+        configuration = SavedStateConfiguration {
+
+            serializersModule = SerializersModule {
+                polymorphic(NavKey::class) {
+                    subclass(DashboardRoute::class)
+                    subclass(Produtos::class)
+                    subclass(Categorias::class)
+                    subclass(Clientes::class)
+                    subclass(Vendas::class)
+                    subclass(ListaCategorias::class)
+                    subclass(FormularioCategoria::class)
+                    subclass(ListaProdutos::class)
+                    subclass(FormularioProduto::class)
+                    subclass(ListaClientes::class)
+                    subclass(FormularioCliente::class)
+                    subclass(ListaVendas::class)
+                    subclass(FormularioVenda::class)
+                }
+            }
+        },
+        DashboardRoute
+    )
+    val apiService = remember {
+        ApiService(CIO.create())
+    }
+
+    val categoriaViewModel = remember(apiService) {
+        CategoriaViewModel(
+            CategoriaRepositorioRemoto(apiService)
+        )
+    }
+
+    val rotaAtual = backStack.lastOrNull() as? Rota ?: DashboardRoute
+
     LojaInteligenteTheme {
         val apiService = remember {
             ApiService(createHttpClientEngine())
@@ -90,9 +148,9 @@ fun App() {
             mutableStateOf(false)
         }
 
-        var telaSelecionada by remember {
-            mutableStateOf("Dashboard")
-        }
+
+
+
 
         if (!autenticado) {
             LoginForm(
@@ -100,6 +158,7 @@ fun App() {
                     apiService.login(email, senha)
                 },
                 aoLoginSucesso = {
+                    println("Token armazenado: ${apiService.possuiToken()}")
                     autenticado = true
                 }
             )
@@ -110,9 +169,11 @@ fun App() {
                     .background(Fundo)
             ) {
                 MenuLateral(
-                    telaSelecionada = telaSelecionada,
-                    aoSelecionar = { tela ->
-                        telaSelecionada = tela
+                    rotaAtual = rotaAtual,
+                    aoSelecionar = { rota ->
+                        if (backStack.lastOrNull() != rota) {
+                            backStack.add(rota)
+                        }
                     }
                 )
 
@@ -122,9 +183,13 @@ fun App() {
                         .fillMaxHeight()
                         .padding(24.dp)
                 ) {
-                    val tituloTela = when (telaSelecionada) {
-                        "Dashboard" -> "Visão geral"
-                        else -> telaSelecionada
+                    val tituloTela = when (rotaAtual) {
+                        DashboardRoute -> "Dashboard"
+                        Produtos -> "Produtos"
+                        Categorias -> "Categorias"
+                        Clientes -> "Clientes"
+                        Vendas -> "Vendas"
+                        else -> "Módulo"
                     }
 
                     Text(
@@ -144,127 +209,172 @@ fun App() {
 
                     Spacer(Modifier.height(24.dp))
 
-                    when (telaSelecionada) {
 
-                        "Dashboard" -> Dashboard(
-                            apiService = apiService,
-                            atualizarVersao = versaoDashboard,
-                            aoSelecionar = {
-                                telaSelecionada = it
+
+                    NavDisplay(
+                        backStack = backStack,
+                        onBack = {
+                            if (backStack.size > 1) {
+                                backStack.removeLastOrNull()
                             }
-                        )
-
-                        "Categorias" -> Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            CategoriaForm(
-                                aoGravar = { categoria ->
-                                    apiService.cadastrarCategoria(
-                                        CategoriaRequestApi(
-                                            nome = categoria.nome,
-                                            descricao = categoria.descricao,
-                                            ativo = categoria.ativo,
-                                            ordemExibicao = categoria.ordemExibicao
-                                        )
-                                    ).map { resposta ->
-                                        versaoCategorias++
-                                        versaoDashboard++
-
-                                        "Categoria '${resposta.nome}' cadastrada com sucesso! ID: ${resposta.id}"
+                        },
+                        entryProvider = entryProvider {
+                            entry<DashboardRoute> {
+                                Dashboard(
+                                    apiService = apiService,
+                                    atualizarVersao = versaoDashboard,
+                                    aoSelecionar = { rota ->
+                                        if (backStack.lastOrNull() != rota) {
+                                            backStack.add(rota)
+                                        }
                                     }
-                                }
-                            )
-
-                            HorizontalDivider()
-
-                            CategoriaLista(
-                                apiService = apiService,
-                                modifier = Modifier.weight(1f),
-
-                            )
-                        }
-
-                        "Usuários" -> CadastroForm(
-                            apiService = apiService,
-                            onCadastroSucesso = {
-                                versaoUsuarios++
-                                versaoDashboard++
+                                )
                             }
-                        )
 
-                        "Produtos" -> Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            ProdutoForm(
-                                apiService = apiService,
-                                onProdutoCadastrado = {
-                                    versaoProdutos++
-                                    versaoDashboard++
+
+                            entry<Categorias> {
+                                CategoriaLista(
+                                    viewModel = categoriaViewModel,
+                                    atualizarVersao = versaoCategorias,
+                                    aoEditar = { categoria ->
+                                        categoriaViewModel.selecionarCategoria(categoria)
+                                        backStack.add(FormularioCategoria)
+                                    },
+                                    aoNovaCategoria = {
+                                        categoriaViewModel.limparFormulario()
+                                        backStack.add(FormularioCategoria)
+                                    }
+                                )
+                            }
+
+
+                            entry<Produtos> {
+                                val produtoViewModel = remember(apiService) {
+                                    ProdutoViewModel(
+                                        ProdutoRepositorioRemoto(apiService)
+                                    )
                                 }
-                            )
 
-                            HorizontalDivider()
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    ProdutoForm(
+                                        apiService = apiService,
+                                        viewModel = produtoViewModel,
+                                        onProdutoCadastrado = {
+                                            versaoProdutos++
+                                            versaoDashboard++
+                                        }
+                                    )
 
-                            ProdutoLista(
-                                apiService = apiService,
-                                atualizarVersao = versaoProdutos
-                            )
-                        }
+                                    HorizontalDivider()
 
-                        "Clientes" -> Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            ClienteForm(
-                                apiService = apiService,
-                                onClienteCadastrado = {
-                                    versaoClientes++
-                                    versaoDashboard++
+                                    ProdutoLista(
+                                        viewModel = produtoViewModel,
+                                        atualizarVersao = versaoProdutos,
+                                        aoEditar = { produto ->
+                                            produtoViewModel.selecionarProduto(produto)
+                                        }
+                                    )
                                 }
-                            )
+                            }
 
-                            HorizontalDivider()
 
-                            ClienteLista(
-                                apiService = apiService,
-                                atualizarVersao = versaoClientes
-                            )
-                        }
+                            entry<Clientes> {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    ClienteForm(
+                                        apiService = apiService,
+                                        onClienteCadastrado = {
+                                            versaoClientes++
+                                            versaoDashboard++
+                                        }
+                                    )
 
-                        "Vendas" -> Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            VendaForm(
-                                apiService = apiService,
-                                onVendaCadastrada = {
-                                    versaoVendas++
-                                    versaoDashboard++
+                                    HorizontalDivider()
+
+                                    ClienteLista(
+                                        apiService = apiService,
+                                        atualizarVersao = versaoClientes
+                                    )
                                 }
-                            )
+                            }
 
-                            HorizontalDivider()
+                            entry<Vendas> {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    VendaForm(
+                                        apiService = apiService,
+                                        onVendaCadastrada = {
+                                            versaoVendas++
+                                            versaoDashboard++
+                                        }
+                                    )
 
-                            VendaLista(
-                                apiService = apiService,
-                                atualizarVersao = versaoVendas
-                            )
+                                    HorizontalDivider()
+
+                                    VendaLista(
+                                        apiService = apiService,
+                                        atualizarVersao = versaoVendas
+                                    )
+                                }
+                            }
+
+                            entry<ListaCategorias> {
+                                TelaEmConstrucao("Lista de Categorias")
+                            }
+
+                            entry<FormularioCategoria> {
+                                CategoriaForm(
+                                    viewModel = categoriaViewModel,
+                                    onCategoriaCadastrada = {
+                                        versaoCategorias++
+                                        backStack.removeLastOrNull()
+                                    }
+                                )
+                            }
+
+                            entry<ListaProdutos> {
+                                TelaEmConstrucao("Lista de Produtos")
+                            }
+
+                            entry<FormularioProduto> {
+                                TelaEmConstrucao("Formulário de Produto")
+                            }
+
+                            entry<ListaClientes> {
+                                TelaEmConstrucao("Lista de Clientes")
+                            }
+
+                            entry<FormularioCliente> {
+                                TelaEmConstrucao("Formulário de Cliente")
+                            }
+
+                            entry<ListaVendas> {
+                                TelaEmConstrucao("Lista de Vendas")
+                            }
+
+                            entry<FormularioVenda> {
+                                TelaEmConstrucao("Formulário de Venda")
+                            }
                         }
-
-                        else -> TelaEmConstrucao(telaSelecionada)
-                    }
+                    )
                 }
             }
         }
     }
 }
 
+
 @Composable
 private fun MenuLateral(
-    telaSelecionada: String,
-    aoSelecionar: (String) -> Unit
+    rotaAtual: Rota,
+    aoSelecionar: (Rota) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -292,19 +402,20 @@ private fun MenuLateral(
         Spacer(Modifier.height(32.dp))
 
         val opcoes = listOf(
-            "Dashboard",
-            "Produtos",
-            "Categorias",
-            "Usuários",
-            "Clientes",
-            "Vendas"
+            "Dashboard" to DashboardRoute,
+            "Produtos" to Produtos,
+            "Categorias" to Categorias,
+
+            "Clientes" to Clientes,
+            "Vendas" to Vendas
         )
 
-        opcoes.forEach { opcao ->
-            val selecionado = telaSelecionada == opcao
+        opcoes.forEach { (nome, rota) ->
+
+            val selecionado = rotaAtual == rota
 
             Surface(
-                onClick = { aoSelecionar(opcao) },
+                onClick = { aoSelecionar(rota) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 3.dp),
@@ -312,7 +423,7 @@ private fun MenuLateral(
                 color = if (selecionado) Azul else Color.Transparent
             ) {
                 Text(
-                    text = opcao,
+                    text = nome,
                     modifier = Modifier.padding(
                         horizontal = 12.dp,
                         vertical = 12.dp
@@ -342,7 +453,7 @@ private fun MenuLateral(
 private fun Dashboard(
     apiService: ApiService,
     atualizarVersao: Int,
-    aoSelecionar: (String) -> Unit
+    aoSelecionar: (Rota) -> Unit
 ) {
     var totalProdutos by remember { mutableStateOf("—") }
     var totalCategorias by remember { mutableStateOf("—") }
@@ -446,14 +557,13 @@ private fun Dashboard(
                 )
 
                 listOf(
-                    "Produtos",
-                    "Categorias",
-                    "Usuários",
-                    "Clientes",
-                    "Vendas"
-                ).forEach { modulo ->
+                    Pair("Produtos", Produtos),
+                    Pair("Categorias", Categorias),
+                    Pair("Clientes", Clientes),
+                    Pair("Vendas", Vendas)
+                ).forEach { (modulo, rota) ->
                     Surface(
-                        onClick = { aoSelecionar(modulo) },
+                        onClick = { aoSelecionar(rota) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         color = Color.White,

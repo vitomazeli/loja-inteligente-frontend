@@ -16,9 +16,11 @@ kotlin-wrappers = "2026.9.3"
 kotlinx-coroutines = "1.11.0"
 ktor = "3.3.3"
 material3 = "1.12.0-alpha03"
+navigation3 = "1.1.2"
 
 
 [libraries]
+androidx-savedstate = { module = "androidx.savedstate:savedstate", version = "1.4.0" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 junit = { module = "junit:junit", version.ref = "junit" }
@@ -46,6 +48,8 @@ ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version = "1.9.0" }
+navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
+
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

@@ -1,5 +1,4 @@
-
-package br.com.lojainteligente.frontend.ui
+package br.com.lojainteligente.frontend.ui.screens.vendas
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,7 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import br.com.lojainteligente.frontend.data.ApiService
+import br.com.lojainteligente.frontend.data.repository.ApiService
 import br.com.lojainteligente.frontend.model.VendaResponseApi
 
 @Composable
