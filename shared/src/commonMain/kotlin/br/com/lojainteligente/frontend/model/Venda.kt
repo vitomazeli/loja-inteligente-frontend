@@ -14,6 +14,7 @@ data class ItemVendaRequestApi(
 data class VendaRequestApi(
     val clienteId: Long,
     val itens: List<ItemVendaRequestApi>,
+    val status: String,
     val observacao: String? = null
 )
 

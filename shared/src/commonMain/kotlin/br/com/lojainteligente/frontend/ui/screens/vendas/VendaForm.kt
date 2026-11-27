@@ -18,7 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import br.com.lojainteligente.frontend.data.repository.ApiService
 import br.com.lojainteligente.frontend.model.ClienteResponseApi
@@ -63,6 +62,7 @@ fun VendaForm(
     }
 
     var menuClientesAberto by remember { mutableStateOf(false) }
+    var menuStatusAberto by remember { mutableStateOf(false) }
     var menuCategoriasAberto by remember { mutableStateOf(false) }
     var menuProdutosAberto by remember { mutableStateOf(false) }
 
@@ -78,6 +78,12 @@ fun VendaForm(
 
     LaunchedEffect(apiService, vendaInicial) {
         viewModel.limparFormulario()
+        val statusInicial = vendaInicial?.status
+        viewModel.atualizarStatus(
+            normalizarStatusVenda(statusInicial)
+                ?: statusInicial?.takeIf { it.isNotBlank() }
+                ?: "PENDENTE"
+        )
         vendaInicial?.let { inicial ->
             viewModel.selecionarCliente(inicial.clienteId)
             viewModel.atualizarObservacao(
@@ -145,7 +151,7 @@ fun VendaForm(
             DropdownMenu(
                 expanded = menuClientesAberto,
                 onDismissRequest = { menuClientesAberto = false },
-                containerColor = Color(0xFFF3F8FF),
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
                 tonalElevation = 0.dp
             ) {
                 clientes.forEach { cliente ->
@@ -162,6 +168,34 @@ fun VendaForm(
             }
         }
 
+        // Status da venda
+        Column {
+            Text("Status da venda", style = MaterialTheme.typography.titleSmall)
+            FilledTonalButton(
+                onClick = { menuStatusAberto = true },
+                enabled = !carregando
+            ) {
+                Text(rotuloStatusVenda(estado.status))
+            }
+
+            DropdownMenu(
+                expanded = menuStatusAberto,
+                onDismissRequest = { menuStatusAberto = false },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 0.dp
+            ) {
+                listOf("PENDENTE" to "Pendente", "CONCLUIDA" to "Concluída").forEach { (valor, rotulo) ->
+                    DropdownMenuItem(
+                        text = { Text(rotulo) },
+                        onClick = {
+                            viewModel.atualizarStatus(valor)
+                            menuStatusAberto = false
+                        }
+                    )
+                }
+            }
+        }
+
         // Categoria deve ser selecionada antes do produto.
         Column {
             FilledTonalButton(
@@ -172,7 +206,7 @@ fun VendaForm(
             DropdownMenu(
                 expanded = menuCategoriasAberto,
                 onDismissRequest = { menuCategoriasAberto = false },
-                containerColor = Color(0xFFF3F8FF),
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
                 tonalElevation = 0.dp
             ) {
                 categorias.forEach { categoria ->
@@ -205,7 +239,7 @@ fun VendaForm(
             DropdownMenu(
                 expanded = menuProdutosAberto,
                 onDismissRequest = { menuProdutosAberto = false },
-                containerColor = Color(0xFFF3F8FF),
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
                 tonalElevation = 0.dp
             ) {
                 produtos.filter { it.categoriaId == categoriaSelecionada?.id }.forEach { produto ->
@@ -352,8 +386,13 @@ fun VendaForm(
             Button(
                 onClick = {
                     val clienteId = clienteSelecionado?.id
+                    val statusSelecionado = normalizarStatusVenda(estado.status)
 
                     when {
+                        statusSelecionado == null -> {
+                            mensagem = "Selecione um status válido."
+                        }
+
                         clienteId == null || clienteId <= 0L -> {
                             mensagem = "Selecione um cliente válido."
                         }
@@ -371,6 +410,7 @@ fun VendaForm(
                                     val request = VendaRequestApi(
                                         clienteId = clienteId,
                                         itens = itens.toList(),
+                                        status = requireNotNull(statusSelecionado),
                                         observacao = observacao.trim().ifBlank { null }
                                     )
                                     viewModel.selecionarCliente(clienteId)

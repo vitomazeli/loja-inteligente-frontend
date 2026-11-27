@@ -15,6 +15,7 @@ data class VendaUiState(
     val vendas: List<VendaResponseApi> = emptyList(),
     val clienteId: Long? = null,
     val itens: List<ItemVendaRequestApi> = emptyList(),
+    val status: String = "PENDENTE",
     val observacao: String = "",
     val carregando: Boolean = false,
     val mensagem: String = ""
@@ -26,8 +27,11 @@ class VendaViewModel(private val repositorio: VendaRepositorioRemoto) : ViewMode
 
     fun selecionarCliente(id: Long?) = _uiState.update { it.copy(clienteId = id) }
     fun atualizarItens(itens: List<ItemVendaRequestApi>) = _uiState.update { it.copy(itens = itens) }
+    fun atualizarStatus(valor: String) = _uiState.update { it.copy(status = valor) }
     fun atualizarObservacao(valor: String) = _uiState.update { it.copy(observacao = valor) }
-    fun limparFormulario() = _uiState.update { it.copy(clienteId = null, itens = emptyList(), observacao = "", mensagem = "") }
+    fun limparFormulario() = _uiState.update {
+        it.copy(clienteId = null, itens = emptyList(), status = "PENDENTE", observacao = "", mensagem = "")
+    }
 
     fun carregar() = viewModelScope.launch {
         _uiState.update { it.copy(carregando = true, mensagem = "") }

@@ -10,6 +10,10 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
 }
 
+compose.resources {
+    packageOfResClass = "br.com.lojainteligente.frontend.resources"
+}
+
 kotlin {
     jvm()
 

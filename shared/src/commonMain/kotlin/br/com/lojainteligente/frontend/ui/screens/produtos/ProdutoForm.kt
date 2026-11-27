@@ -10,6 +10,8 @@ import androidx.compose.ui.unit.dp
 import br.com.lojainteligente.frontend.data.repository.ApiService
 import br.com.lojainteligente.frontend.data.repository.CategoriaResponseApi
 import br.com.lojainteligente.frontend.ui.components.KoraFormPanel
+import br.com.lojainteligente.frontend.ui.components.KoraPrimaryButton
+import br.com.lojainteligente.frontend.ui.components.KoraSecondaryButton
 import br.com.lojainteligente.frontend.viewmodel.ProdutoViewModel
 
 @Composable
@@ -101,7 +103,9 @@ fun ProdutoForm(
 
             DropdownMenu(
                 expanded = menuAberto,
-                onDismissRequest = { menuAberto = false }
+                onDismissRequest = { menuAberto = false },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 0.dp
             ) {
                 categorias.forEach { categoria ->
                     DropdownMenuItem(
@@ -138,34 +142,33 @@ fun ProdutoForm(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Button(
+            KoraPrimaryButton(
                 onClick = {
                     viewModel.salvarProduto()
                 },
+                text = if (estado.id == null) "Gravar" else "Salvar alterações",
                 enabled = !estado.carregando,
+                loading = estado.carregando,
                 modifier = Modifier.weight(if (estado.id == null) 1f else 2f)
-            ) {
-                Text(if (estado.id == null) "Gravar" else "Atualizar")
-            }
+            )
 
             if (estado.id == null) {
-                OutlinedButton(
+                KoraSecondaryButton(
+                    text = "Limpar Campos",
                     onClick = {
                         viewModel.limparFormulario()
                         categoriaSelecionada = null
                     },
                     enabled = !estado.carregando,
                     modifier = Modifier.weight(1f)
-                ) {
-                    Text("Limpar Campos")
-                }
+                )
             }
         }
 
         if (estado.mensagem.isNotBlank()) {
             Text(
                 text = estado.mensagem,
-                color = MaterialTheme.colorScheme.primary
+                color = if (estado.mensagem.contains("sucesso", true)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
             )
         }
       }

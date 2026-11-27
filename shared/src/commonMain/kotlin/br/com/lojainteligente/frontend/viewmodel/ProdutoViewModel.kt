@@ -126,10 +126,12 @@ class ProdutoViewModel(
 
             resultado.fold(
                 onSuccess = {
-                    limparFormulario()
                     carregarProdutosInterno()
                     _uiState.update {
-                        it.copy(mensagem = if (estavaEditando) "Produto atualizado com sucesso." else "Produto cadastrado com sucesso.")
+                        it.copy(
+                            carregando = false,
+                            mensagem = if (estavaEditando) "Produto atualizado com sucesso" else "Produto cadastrado com sucesso"
+                        )
                     }
                 },
                 onFailure = { erro ->

@@ -31,6 +31,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.lojainteligente.frontend.data.repository.ApiService
@@ -47,6 +50,8 @@ fun CadastroForm(
     var email by remember { mutableStateOf("") }
     var senha by remember { mutableStateOf("") }
     var confirmarSenha by remember { mutableStateOf("") }
+    var mostrarSenha by remember { mutableStateOf(false) }
+    var mostrarConfirmacao by remember { mutableStateOf(false) }
     var mensagem by remember { mutableStateOf("") }
     var erro by remember { mutableStateOf(false) }
     var carregando by remember { mutableStateOf(false) }
@@ -59,7 +64,7 @@ fun CadastroForm(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
     Card(
-        modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
+        modifier = Modifier.fillMaxWidth().widthIn(max = 460.dp),
         shape = RoundedCornerShape(28.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
         colors = CardDefaults.cardColors(
@@ -68,7 +73,7 @@ fun CadastroForm(
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(
-            modifier = Modifier.padding(32.dp),
+            modifier = Modifier.padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -93,7 +98,9 @@ fun CadastroForm(
                 onValueChange = { nome = it },
                 label = { Text("Nome completo") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                enabled = !carregando,
+                isError = nome.isBlank() && mensagem.isNotBlank() && erro
             )
 
             OutlinedTextField(
@@ -101,25 +108,45 @@ fun CadastroForm(
                 onValueChange = { email = it },
                 label = { Text("E-mail") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                enabled = !carregando,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                isError = email.isNotBlank() && !email.contains("@"),
+                supportingText = if (email.isNotBlank() && !email.contains("@")) ({ Text("Informe um e-mail válido.") }) else null
             )
 
             OutlinedTextField(
                 value = senha,
                 onValueChange = { senha = it },
                 label = { Text("Senha") },
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (mostrarSenha) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    androidx.compose.material3.TextButton(onClick = { mostrarSenha = !mostrarSenha }) {
+                        Text(if (mostrarSenha) "Ocultar" else "Mostrar")
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                enabled = !carregando,
+                isError = senha.isNotBlank() && senha.length < 6,
+                supportingText = if (senha.isNotBlank() && senha.length < 6) ({ Text("A senha deve ter ao menos 6 caracteres.") }) else null
             )
 
             OutlinedTextField(
                 value = confirmarSenha,
                 onValueChange = { confirmarSenha = it },
                 label = { Text("Confirmar senha") },
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (mostrarConfirmacao) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    androidx.compose.material3.TextButton(onClick = { mostrarConfirmacao = !mostrarConfirmacao }) {
+                        Text(if (mostrarConfirmacao) "Ocultar" else "Mostrar")
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                enabled = !carregando,
+                isError = confirmarSenha.isNotBlank() && confirmarSenha != senha,
+                supportingText = if (confirmarSenha.isNotBlank() && confirmarSenha != senha) ({ Text("As senhas não conferem.") }) else null
             )
 
             Button(
@@ -128,6 +155,24 @@ fun CadastroForm(
                         carregando = true
                         mensagem = ""
 
+                        if (nome.isBlank()) {
+                            mensagem = "Informe seu nome completo."
+                            erro = true
+                            carregando = false
+                            return@launch
+                        }
+                        if (!email.contains("@") || !email.substringAfter("@", "").contains(".")) {
+                            mensagem = "Informe um e-mail válido."
+                            erro = true
+                            carregando = false
+                            return@launch
+                        }
+                        if (senha.length < 6) {
+                            mensagem = "A senha deve ter ao menos 6 caracteres."
+                            erro = true
+                            carregando = false
+                            return@launch
+                        }
                         if (senha != confirmarSenha) {
                             mensagem = "As senhas não conferem."
                             erro = true
@@ -161,11 +206,7 @@ fun CadastroForm(
                         carregando = false
                     }
                 },
-                enabled = !carregando &&
-                        nome.isNotBlank() &&
-                        email.isNotBlank() &&
-                        senha.length >= 6 &&
-                        confirmarSenha.isNotBlank(),
+                enabled = !carregando,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
@@ -176,7 +217,8 @@ fun CadastroForm(
 
             OutlinedButton(
                 onClick = aoIrParaLogin,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !carregando
             ) {
                 Text("Já tenho uma conta · Entrar")
             }
@@ -187,7 +229,7 @@ fun CadastroForm(
                     color = if (erro) {
                         MaterialTheme.colorScheme.error
                     } else {
-                        Color(0xFF15803D)
+                        MaterialTheme.colorScheme.onTertiaryContainer
                     }
                 )
             }
